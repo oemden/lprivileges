@@ -1,13 +1,10 @@
-# version 0.2
+# version 0.3
 [Unit]
 Description=Monitor Linux Privileges Request file
 
 [Path]
 PathModified=/var/tmp/lprivileges/lprivileges
-#PathChanged=/var/tmp/requests/lprivileges
 Unit=lprivileges.service
 
 [Install]
 WantedBy=multi-user.target
-#WantedBy=multi-user.target paths.target
-
