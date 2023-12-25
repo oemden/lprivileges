@@ -1,0 +1,66 @@
+#!/bin/bash
+# Linux Privileges - App Desktop
+# ------------------------------------------------------------
+Version_main=1.0
+version_script=0.2
+# ------------------------------------------------------------
+# script vars
+input="${1}" # no arg or --request (no sudo) | --remove | --status  (no sudo) | --grant | --demote
+my_date=$(date)
+#loggedinUser=$(whoami) # Get loggedin user
+# ------------------------------------------------------------
+echo "Importing source .conf files"
+conf_dir="/usr/local/etc/lprivileges" #lprivileges conf Directory
+lrpivileges_global_conf=${conf_dir}/lprivileges.global.conf ## Import Before Custom Conf
+lrpivileges_conf=${conf_dir}/lprivileges.conf  ## Import After GLobal Conf
+# ------ Import Parameters -----------------------------------
+source "${lrpivileges_global_conf}"
+source "${lrpivileges_conf}"
+# ------------------------------------------------------------
+
+function log_lprivileges_install {
+	echo "$1"  | tee -a ${log_file}
+}
+
+function lprivileges_DesktopApp_create() {
+	log_lprivileges_install "$(date) Creating lprivileges App Shorcut. ${app_dir}/${app_name}"
+
+cat <<EOF > /usr/share/applications/linux-privileges.desktop
+#!/usr/bin/env xdg-open
+
+[Desktop Entry]
+Type=Application
+Terminal=true
+Name="Linux Privileges"
+Icon=/usr/local/share/icons/lprivileges/Privileges_icon_locked.png
+Exec=/usr/local/bin/lprivilegesreq
+EOF
+
+}
+
+# to remove
+function lprivileges_DesktopApp_Desktop_shorcut {
+	# add desktop shorcut for all users
+	mkdir -p ${all_users_desktop}
+	cp ${lprivileges_DesktopApp} ${all_users_desktop}
+	# set trusted status
+	set trusted status gio set ${all_users_desktop}/${app_file} metadata::trusted true
+	# allow execution 
+	chmod a+x ${all_users_desktop}/${app_file}
+}
+
+function lprivileges_DesktopApp_icon_unlock {
+	# change icon while unlocked
+	sed -i 's/_locked/_unlocked/g' "${lprivileges_DesktopApp}"	
+}
+
+function lprivileges_DesktopApp_icon_lock {
+	# change icon while unlocked
+	sed -i 's/_unlocked/_locked/g' "${lprivileges_DesktopApp}"
+}
+
+lprivileges_DesktopApp_create
+#lprivileges_DesktopApp_Desktop_shorcut
+
+exit
+

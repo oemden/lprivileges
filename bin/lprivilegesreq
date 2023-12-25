@@ -1,0 +1,197 @@
+#!/bin/bash
+# Linux Privileges - Request
+# ------------------------------------------------------------
+Version_main=1.0
+version_script=1.2
+# ------------------------------------------------------------
+# script vars
+my_date=$(date)
+loggedinUser=$(whoami) # Get loggedin user
+loggedinUserGnome=$(w -h | grep gnome | cut -d' ' -f1 | sort | uniq)
+#LOGED_USER=$(who | awk '{ print $1"\t"$2 }') 
+EXEC_USER=$(ps aux | grep $0 | awk '{ print $1 }' | uniq)
+# ------------------------------------------------------------
+#echo "Importing source .conf files"
+conf_dir="/usr/local/etc/lprivileges" #lprivileges conf Directory
+lrpivileges_global_conf=${conf_dir}/lprivileges.global.conf ## Import Before Custom Conf
+lrpivileges_conf=${conf_dir}/lprivileges.conf  ## Import After GLobal Conf
+# ------ Import Parameters -----------------------------------
+source "${lrpivileges_global_conf}"
+source "${lrpivileges_conf}"
+# ------------------------------------------------------------
+
+function check_sudo {
+	if [[ "$EUID" -ne 0 ]] ; then
+	 #echo "I am not root"
+	 runasroot=0
+	else
+	 #echo "I am root"
+	 echo "Must not be runned as root"
+	 runasroot=1
+	 exit 1
+	fi
+}
+
+function lprivileges_welcome {
+	lprivileges_DesktopApp_shorcut
+welcome_request="
+ --------------------------
+ Linux Privileges:
+  Would you like to request Administator Privileges ?
+  
+    Request privileges - Press any Key
+    Cancel - (c/C) or ctrl-C
+ --------------------------
+"
+	 read -p "${welcome_request}" welcome
+
+	  if [[ "${welcome}" == [cC] ]] ; then
+	  	echo "Quitting"
+	  	exit 0 
+	  else
+		#echo
+		#clear ;
+		lprivileges_reason_req
+	  fi
+}
+
+function lprivileges_reason_req {
+	# must not be runned as root
+	#if [[ "${runasroot}" == "0" ]] && [[ "${reason_required}" == "1" ]] ; then
+	if [[ "${reason_required}" == "1" ]] ; then
+	
+reason_choices="
+ --------------------------
+ Linux Privileges:
+   You requested Administator Privileges Escalation
+   Please enter a reason:
+    (1) ${reason_01}
+    (2) ${reason_02}
+    (3) ${reason_03}
+    (4) ${reason_04}
+    (5) ${reason_05}
+    (6) Cancel
+ --------------------------
+"
+	 read -rep "$reason_choices" reason_choice
+
+	  case "${reason_choice}" in
+	
+		1 ) echo ; make_me_admin_request "${reason_01}"
+			#reason="${reason_01}" ; 
+			;;
+		
+		2 ) echo ; make_me_admin_request "${reason_02}"
+			#reason="${reason_02}" ;
+			;;
+		
+		3 ) echo ; make_me_admin_request "${reason_03}"
+			#reason="${reason_03}" ;
+			;;
+		
+		4 ) echo ; make_me_admin_request "${reason_04}"
+			#reason="${reason_04}" ;
+			;;
+		
+		5 ) echo ; read -p "${reason_05}: " input
+			make_me_admin_request "${input}"
+			#reason="${input}" 
+			;;
+
+		6 ) exit_request ;
+			;;
+
+		* ) clear && read -p "Quitting, Press Any key" ; echo
+		    exit 0 ;;
+
+	  esac
+	 
+	else
+	 echo ""
+	 make_me_admin_request
+	fi
+}
+
+function make_me_admin_request() {
+
+	if [[ $require_password == 1 ]] ; then
+	# !!! must not be runned as root
+	## ask user's password
+	echo ""
+	echo -n "Please Enter ${loggedinUser} password to confirm:" ; echo
+	 #su ${loggedinUser} -c true  2>/dev/null  && make_me_admin_request || bad_credentials ; echo
+	 su ${loggedinUser} -c true  2>/dev/null || bad_credentials ; echo
+	fi
+	
+	echo "reason ${1}"
+
+	 #create requests_dir
+	 mkdir -p "${requests_dir}"
+
+	 ## touch request privileges user's file
+	 #echo "touch req file"
+	 echo "${loggedinUser};request;${1}" > "${lprivileges_file_req}"
+	 chmod 600 "${lprivileges_file_req}" # only readable by user or admin
+	
+	 lprivileges_notify "${1}"
+	 lprivileges_DesktopApp_shorcut
+	
+}
+
+function bad_credentials {
+	echo "Wrong Password, please try again. Exiting."
+	exit 1
+}
+
+function lprivileges_notify() {
+#clear
+echo "${1}"
+
+	if [[ -f ${lprivileges_file_req} ]] ; then
+	 #Is loggeduser using gnome Desktop
+	 if  [[ ! -z $loggedinUserGnome ]] && [[ $loggedinUserGnome == $loggedinUser ]] ; then
+	  echo
+	  #echo "${loggedinUser} is logged in gnome-Desktop, sending notification..."
+	  # Use GUI Notification # too much notify use only in --grant or --demote
+	  #notify-send -i ${icon_corp_path} "Admin privileges for ${loggedinUser} requested"	 
+	 fi
+	  # echo and log the request
+	  echo "${my_date} | Administrator Privileges requested for ${loggedinUser} reason: ${1}" | tee -a ${log_file}
+	# use sudoer with policy Kit
+	fi
+}
+
+function lprivileges_DesktopApp_shorcut {
+
+ 	lprivileges_shorcut=$(gsettings get org.gnome.shell favorite-apps | grep linux-privileges.desktop)
+
+ 	if [[ -z ${lprivileges_shorcut} ]] ; then
+		echo "Creating Shorcut"
+  gsettings set org.gnome.shell favorite-apps "$(gsettings get org.gnome.shell favorite-apps |  sed s/.$//), 'linux-privileges.desktop']"
+		echo "${my_date} | Add Linux-privileges App Shorcut for ${loggedinUser} | tee -a ${log_file}"
+ 	fi
+
+}
+
+function echo_dev {
+if [[ $echodev == 1 ]] ; then
+echo "reason_required: $reason_required"
+echo "require_password: $require_password"
+echo "notify_grant: $notify_grant"
+echo "notify_demote: $notify_demote"
+echo "timer: $timer"
+echo "echodev: $echodev"
+echo "lprivileges_welcome_txt: $lprivileges_welcome_txt"
+echo "LOGED_USER: $LOGED_USER"
+echo "EXEC_USER: $EXEC_USER"
+fi
+}
+
+## do_it
+check_sudo
+lprivileges_welcome
+
+
+
+exit 0
+

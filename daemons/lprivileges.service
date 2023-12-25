@@ -1,0 +1,13 @@
+# version 0.2
+[Unit]
+Description=Executes lprivilegestriage when a file request si made.
+
+[Service]
+#Type=forking
+#RuntimeDirectory=lprivileges
+#RuntimeDirectoryMode=0775
+ExecStart=/usr/local/bin/lprivilegestriage
+
+#[Install]
+#WantedBy=multi-user.target
+

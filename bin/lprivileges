@@ -1,0 +1,317 @@
+#!/bin/bash
+# Linux Privileges - Main
+# ------------------------------------------------------------
+Version_main=1.0
+version=1.1
+# ------------------------------------------------------------
+# script vars
+input="${1}" # no arg or --request (no sudo) | --remove | --status  (no sudo) | --grant | --demote
+my_date=$(date)
+loggedinUser=$(whoami) # Get loggedin user
+display=":$(ls /tmp/.X11-unix/* | sed 's#/tmp/.X11-unix/X##' | head -n 1)"
+LOGED_USER=$(who | awk '{ print $1"\t"$2 }') 
+exec_user=$(ps aux | grep $0 | awk '{ print $1 }' | uniq)
+# ------------------------------------------------------------
+#echo "Importing source .conf files"
+conf_dir="/usr/local/etc/lprivileges" #lprivileges conf Directory
+lrpivileges_global_conf=${conf_dir}/lprivileges.global.conf ## Import Before Custom Conf
+lrpivileges_conf=${conf_dir}/lprivileges.conf  ## Import After GLobal Conf
+# ------ Import Parameters -----------------------------------
+source "${lrpivileges_global_conf}"
+source "${lrpivileges_conf}"
+# ------------------------------------------------------------
+
+function check_sudo {
+	if [[ "$EUID" -ne 0 ]] ; then
+	 #echo "I am not root"
+	 runasroot=0
+	else
+	 #echo "I am root"
+	 runasroot=1
+	fi
+}
+
+function echo_dev {
+
+	if [[ "${echodev}" == 1 ]] ; then
+	 if [[ ${require_request} == 1 ]] ; then
+	  lprivileges_request_info
+	  echo "---- echodev ----------------------------------"
+	  echo "requests_dir: $requests_dir"
+	  echo "lprivileges_file_req: $lprivileges_file_req"
+	  echo "lprivileges_user: $lprivileges_user"
+	  echo "lprivileges_request: $lprivileges_request"
+	  echo "lprivileges_reason: $lprivileges_reason"
+	  echo "loggedinUserGnome: $loggedinUserGnome"
+	  echo "uid_d: $uid_d"
+	 fi
+	 echo "loggedinUser: $loggedinUser"
+	 echo "LOGED_USER: $LOGED_USER"
+	 echo "exec_user: $exec_user"
+	 echo "---------------------------------------------"
+	fi
+}
+
+function lprivileges_help {
+	echo "Linux privileges help <todo>"
+}
+
+function lprivileges_notify_gnome() {
+	# check if request user is logged in gnome-desktop
+	lprivileges_user_gnome=$(w -h | grep "gnome" | grep "${lprivileges_user}" | cut -d' ' -f1 | sort | uniq)
+#	if  [[ ! -z $lprivileges_user_gnome ]] && [[ $lprivileges_user_gnome == $lprivileges_user ]] ; then
+
+if  [[ ! -z $lprivileges_user_gnome ]] ; then
+	echo "===="
+	echo "runasroot: ${runasroot}"
+	echo "\$uid_d: $uid_d"
+	echo "\$1: $1"
+	echo "\$2: $2"
+	echo "\$3: $3"
+
+	if [[ ${runasroot} == "1" ]] ; then
+	 echo "notify as root" 
+	 #su - $user -c "DISPLAY=$display DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$uid_d/bus notify-send -i '$icon' '$@'"
+	 su - ${lprivileges_user} -c "DISPLAY=$display DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${uid_d}/bus notify-send -i '$1' '$2'"
+	elif  [[ ${runasroot} == "0" ]] ; then
+	 echo "notify as nonroot"
+	 notify-send -i "${1}" "${2}"
+	fi
+fi
+}
+
+function get_input() {
+
+	case "${input}" in
+
+	-h|--help )
+                echo "help";
+                echo "todo" ;
+                lprivileges_help
+                ;;
+
+        -s|--status ) 
+        	echo "status requested"
+        	# todo Add lprivileges_status function
+        	lprivileges_user_status
+        	;;
+
+        -g|--grant )
+                echo "grant requested";  #requires sudo & request file
+                require_request=1
+                lprivileges_grant 
+                ;;
+                
+        -d|--demote )
+                echo "demote requested";  # requires sudo & request file
+                require_request=1
+                lprivileges_demote
+                ;;
+
+        -D|--demotesilent )
+                echo "demote requested";  #requires sudo & request file
+                require_request=1
+                lprivileges_demotesilent
+                ;;
+                 
+        -r|--request ) 
+        	echo "admin privileges requested" #no sudo
+        	# todo fusion lprivilegesreq
+        	# 	
+        	;;
+
+        -R|--remove ) 
+        	echo "remove admin privileges requested" #no sudo
+        	# todo Add lprivileges_remove function
+        	;;
+
+        -a|--app ) 
+        	echo "Create lprivileges App" #no sudo
+        	lprivileges_DesktopApp_create
+        	;;
+
+        #* ) 
+        #	echo "No input, asking for request"
+        #	# todo Add lprivileges_request	
+        #	;;
+	esac
+}
+
+function lprivileges_file_req_exist() {
+
+	 if [[ -f "${1}" ]] ; then
+	  echo " file ${1} exists, proceeding"
+	 else
+	  echo "no file request, existing" | tee -a "${log_file}"
+	 exit 1
+	 fi
+}
+
+function lprivileges_request_info {
+	# verify request file exist
+	lprivileges_file_req_exist "${lprivileges_file_req}"
+
+	# get request info
+	lprivileges_read=$(cat "${lprivileges_file_req}")
+	lprivileges_user=$(echo ${lprivileges_read} | awk -F";" '{print $1}') #do with read and IFS?
+	lprivileges_request=$(echo ${lprivileges_read} | awk -F";" '{print $2}') #do with read and IFS?
+	lprivileges_reason=$(echo ${lprivileges_read} | awk -F";" '{print $3}') #do with read and IFS?
+	uid_d=$(id -u ${lprivileges_user})
+	sudoer_file_dir="/etc/sudoers.d"
+	sudoer_file_tmpdir="/var/tmp"
+	sudoer_file_path="${sudoer_file_dir}/${lprivileges_user}"
+	sudoer_file_path_tmp="${sudoer_file_tmpdir}/${lprivileges_user}"
+}
+
+function create_user_sudoer_file {
+	#create tmp file
+	echo "${lprivileges_user}   ALL=(ALL:ALL) ALL" > "${sudoer_file_path_tmp}"
+	
+	# Check syntax
+	sudo_syntax=$(sudo visudo -c -f "${sudoer_file_path_tmp}" | grep OK | awk -F" " '{print $3}')
+
+	if [[ ! -z ${sudo_syntax} ]] && [[ ${sudo_syntax} == "OK" ]] ; then
+		echo "${my_date} | sudoer file for ${sudoer_file_path_tmp} is $sudo_syntax, elevation ok" | tee -a ${log_file}
+
+		#move sudoer file in sudoers.d
+		mv "${sudoer_file_path_tmp}" "${sudoer_file_path}"
+		
+		#check / fix sudoer file permissions
+		chown root:root "${sudoer_file_path}"
+		chmod 440 "${sudoer_file_path}"
+	else
+		echo "${my_date} | sudoer file for ${sudoer_file_path_tmp} has an error, elevation aborted" | tee -a ${log_file}
+		exit 1
+	fi
+}
+
+function lprivileges_grant() {
+
+	lprivileges_request_info
+	# check user is file owner
+	lprivileges_req_owner
+	echo "Adding ${lprivileges_user} to sudo group"
+	create_user_sudoer_file
+
+	# Inform user
+	echo "${my_date} | Administrator Privileges granted for ${lprivileges_user}" reason | tee -a ${log_file}
+	lprivileges_notify_gnome ${icon_grant} "Administrator Privileges granted for ${lprivileges_user}"
+
+	# Change App Icon unlock
+	lprivileges_DesktopApp_icon_unlock
+	
+	# Start Timer # timer is set in lprivileges.conf file
+	echo "echo \"${lprivileges_user};demote;automatic\" > \"${lprivileges_file_req}\"" | at now +"${timer}" minutes
+
+	# Delete make_me_admin_request file
+	sleep 5
+	rm -f "${lprivileges_file_req}" 2>/dev/null
+	echo "${my_date} | deleted lprivileges request file" | tee -a "${log_file}"
+
+}
+
+function lprivileges_demote() {
+
+	lprivileges_request_info
+
+	# deleting sudoer file
+	rm -f "${sudoer_file_path}"
+	echo "Demoted ${lprivileges_user} Privileges"
+	
+	lprivileges_notify_gnome ${icon_demote} "Administrator Privileges admin demoted for ${lprivileges_user}"
+	echo "${my_date} | Administrator Privileges demoted for ${lprivileges_user}" | tee -a ${log_file}
+
+	# Change App Icon lock
+	lprivileges_DesktopApp_icon_lock
+	
+	# Delete make_me_admin_request file
+	sleep 5
+	rm -f "${lprivileges_file_req}" 2>/dev/null
+	echo "${my_date} | deleted lprivileges request file" | tee -a "${log_file}"
+
+}
+
+function lprivileges_demotesilent() {
+
+	lprivileges_request_info
+
+	# deleting sudoer file
+	rm -f "${sudoer_file_path}"
+
+	echo "${my_date} | Administrator Privileges demoted at login for ${lprivileges_user}" | tee -a ${log_file}
+
+	# Change App Icon lock
+	lprivileges_DesktopApp_icon_lock
+	
+	# Delete make_me_admin_request file
+	sleep 1
+	rm -f "${lprivileges_file_req}" 2>/dev/null
+	echo "${my_date} | deleted lprivileges request file" | tee -a "${log_file}"
+
+}
+
+
+function lprivileges_user_status() {
+	# No need for sudo 
+	# Check if sudoer file for user exists	
+	if [[ -f "${sudoer_file_dir}/${exec_user}" ]] ; then
+		# can't cat this file if not admin
+		#sudoer_file_user=$(cat "${sudoer_file_path}" | grep "${loggedinUser}" | awk -F" " '{print $1}')		
+		#echo "sudoer_file_user: $sudoer_file_user"
+		#if [[ ! -z "${sudoer_file_path}" ]] && [[ "${sudoer_file_user}" ==  "${lprivileges_user}" ]] ; then 
+		#if [[ ! -z "${sudoer_file_path}" ]]  ; then 
+			echo "You currently have elevated privileges"
+		#fi
+	else
+		echo "You currently are a standard user"
+	fi
+}
+
+function lprivileges_req_owner {
+	# we want to be sure the request file owner is the requester
+	echo "lprivileges_req_owner"
+	req_owner=$(ls -l "${lprivileges_file_req}" | awk '{ print $3 }')
+	if [[ "${req_owner}" == "${lprivileges_user}" ]] ; then
+		echo "${lprivileges_user} is the owner of the lprivileges request file." | tee -a ${log_file}
+	else
+		echo "${lprivileges_user} is not the owner of the lprivileges request file, aborting" | tee -a ${log_file}
+		exit 1
+	fi
+}
+
+function lprivileges_DesktopApp_create() {
+	log_lprivileges_install "$(date) Creating lprivileges App Shorcut. ${app_dir}/${app_name}"
+
+cat <<EOF > /usr/share/applications/linux-privileges.desktop
+#!/usr/bin/env xdg-open
+
+[Desktop Entry]
+Type=Application
+Terminal=true
+Name="Linux Privileges"
+Icon=/usr/local/share/icons/lprivileges/lprivileges_icon_locked.png
+Exec=/usr/local/bin/lprivilegesreq
+EOF
+
+gsettings set org.gnome.shell favorite-apps "$(gsettings get org.gnome.shell favorite-apps | sed s/.$//), 'linux-privileges.desktop']"
+
+}
+
+function lprivileges_DesktopApp_icon_unlock {
+	# change icon while unlocked
+	sed -i 's/_locked/_unlocked/g' "${lprivileges_DesktopApp}"	
+}
+
+function lprivileges_DesktopApp_icon_lock {
+	# change icon while unlocked
+	sed -i 's/_unlocked/_locked/g' "${lprivileges_DesktopApp}"
+}
+
+check_sudo
+echo_dev
+get_input
+
+
+echo "######################"
+exit 
+

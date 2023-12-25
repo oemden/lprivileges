@@ -1,0 +1,92 @@
+#!/bin/bash
+# Linux Privileges - Triage
+# ------------------------------------------------------------
+Version_main=1.0
+version_script=1.0
+# ------------------------------------------------------------
+# script vars
+dir_name="/home/hsmadmin/Desktop/hs-Linux-Privileges"
+my_date=$(date)
+# ==================================
+loggedinUser=$(whoami) # Get loggedin user
+display=":$(ls /tmp/.X11-unix/* | sed 's#/tmp/.X11-unix/X##' | head -n 1)"
+# ------------------------------------------------------------
+echo "Importing source .conf files"
+conf_dir="/usr/local/etc/lprivileges" #lprivileges conf Directory
+lrpivileges_global_conf=${conf_dir}/lprivileges.global.conf ## Import Before Custom Conf
+lrpivileges_conf=${conf_dir}/lprivileges.conf  ## Import After GLobal Conf
+# ------ Import Parameters -----------------------------------
+source "${lrpivileges_global_conf}"
+source "${lrpivileges_conf}"
+# ------------------------------------------------------------
+
+function check_sudo {
+	if [[ "$EUID" -ne 0 ]] ; then
+	 #echo "I am not rooot"
+	 runasroot=0
+	 echo "${my_date} | lprivileges Triage must be runned as root, exiting"  | tee -a ${log_file} ; exit 1
+	else
+	 #echo "I am rooot"
+	 runasroot=1
+	fi
+}
+
+function lprivileges_file_req_exist() {
+
+	if [[ -f "${1}" ]] ; then
+	 echo " file ${1} exists, proceeding" | tee -a "${log_file}"
+	 #exit 1
+	else
+	 echo "no file request, existing" | tee -a "${log_file}"
+	 exit 1
+	fi
+}
+
+function lprivileges_request_info {
+	# verify request file exist
+	lprivileges_file_req_exist "${lprivileges_file_req}"
+	# get request info
+	lprivileges_read=$(cat "${lprivileges_file_req}")
+	lprivileges_user=$(echo ${lprivileges_read} | awk -F";" '{print $1}')
+	lprivileges_request=$(echo ${lprivileges_read} | awk -F";" '{print $2}')
+	lprivileges_reason=$(echo ${lprivileges_read} | awk -F";" '{print $3}')
+	uid_d=$(id -u ${lprivileges_user})
+}
+
+function read_request() {
+
+	# must be run as root # checked in check_sudo
+	lprivileges_request_info
+	#if [[ ! ${lprivileges_file_req} ]] ; then
+	# echo "no grant or demote request file"
+	# exit 1
+	 
+	if [[ "${runasroot}" == "1" ]] && [[ ${lprivileges_request} == "request" ]] ; then
+	 echo "file ${lprivileges_file_req} exist"
+	 echo "${my_date} | Administrator Privileges Triage: grant requested for ${lprivileges_user}" | tee -a "${log_file}"	
+	 bash ${lprivileges_main_exe_path} --grant
+
+	elif [[ "${runasroot}" == "1" ]] && [[ ${lprivileges_request} == "demote" ]] ; then
+	 echo "file ${lprivileges_file_req} exist"
+	 echo "${my_date} | Administrator Privileges Triage: demote requested for ${lprivileges_user}" | tee -a "${log_file}"
+	 bash ${lprivileges_main_exe_path} --demote
+	 
+	elif [[ "${runasroot}" == "1" ]] && [[ ${lprivileges_request} == "logindemote" ]] ; then
+	 echo "file ${lprivileges_file_req} exist"
+	 echo "${my_date} | Administrator Privileges Triage: demote requested for ${lprivileges_user}" | tee -a "${log_file}"
+	 bash ${lprivileges_main_exe_path} --demotesilent
+	fi
+}
+
+set -x
+check_sudo
+read_request
+
+echo "lprivileges_request $lprivileges_request"
+
+
+# temp to read file easily
+chmod 777 $log_file  2>/dev/null
+
+exit 0
+
