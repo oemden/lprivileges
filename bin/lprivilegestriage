@@ -22,11 +22,9 @@ source "${lrpivileges_conf}"
 
 function check_sudo {
 	if [[ "$EUID" -ne 0 ]] ; then
-	 #echo "I am not rooot"
 	 runasroot=0
 	 echo "${my_date} | lprivileges Triage must be runned as root, exiting"  | tee -a ${log_file} ; exit 1
 	else
-	 #echo "I am rooot"
 	 runasroot=1
 	fi
 }
@@ -35,7 +33,6 @@ function lprivileges_file_req_exist() {
 
 	if [[ -f "${1}" ]] ; then
 	 echo " file ${1} exists, proceeding" | tee -a "${log_file}"
-	 #exit 1
 	else
 	 echo "no file request, existing" | tee -a "${log_file}"
 	 exit 1
@@ -78,15 +75,8 @@ function read_request() {
 	fi
 }
 
-set -x
 check_sudo
 read_request
-
-echo "lprivileges_request $lprivileges_request"
-
-
-# temp to read file easily
-chmod 777 $log_file  2>/dev/null
+#echo "lprivileges_request $lprivileges_request"
 
 exit 0
-
