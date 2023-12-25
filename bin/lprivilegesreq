@@ -1,7 +1,7 @@
 #!/bin/bash
 # Linux Privileges - Request
 # ------------------------------------------------------------
-Version_main=1.0
+Version_main=1.3
 version_script=1.2
 # ------------------------------------------------------------
 # script vars

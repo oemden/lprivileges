@@ -84,7 +84,7 @@ For now usage is simple:
 
 If the icon is not in your favorite bar, search for the app in the 'Show Applications' in your Desktop. The favorite icon will be created at the first request in any case. 
 
-For now, it is a shorcut, and will open up a terminal window just like if you called `lprivilegesreq` from Terminal.
+Desktop App is a shorcut, and will open up a terminal window just like if you called `lprivilegesreq` from Terminal.
 
 
 ### Terminal 

@@ -1,8 +1,8 @@
 #!/bin/bash
 # Linux Privileges - uninstall
 # ------------------------------------------------------------
-Version_main=1.0
-version_script=0.2
+Version_main=1.3
+version_script=0.3
 # ------------------------------------------------------------
 
 if [[ "$EUID" -ne 0 ]] ; then
@@ -39,7 +39,7 @@ rm -Rf /usr/local/share/icons/lprivileges
 echo " Deleting lprivileges icons"
 # Warning -> we should create an uninstall script at the installation or fix the Corporate icon.
 # for now no corporate icon is used as it create too many notifications.
-rm -Rf /usr/local/share/icons/hs
+rm -Rf /usr/local/share/icons/corp
 
 echo "uninstalled Privileges"
 

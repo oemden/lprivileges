@@ -1,8 +1,8 @@
 #!/bin/bash
 # Linux Privileges - Install
 # ------------------------------------------------------------
-Version_main=1.0
-version_script=1.1
+Version_main=1.3
+version_script=1.3
 # ------------------------------------------------------------
 base_name=$(basename ${0})
 read_link=$(readlink -f "${0}")
@@ -42,8 +42,8 @@ function create_dirs {
 	echo ${icon_dir} ; ls -l ${icon_dir}
 	echo ${conf_dir} ; ls -l ${conf_dir}
 	echo ${log_dir} ; ls -l ${log_dir}
-	chown root:staff ${requests_dir}/* # root & staff can write
-	chmod -R 665 ${requests_dir}/* # Everyone & staff can write
+	chown root:staff ${requests_dir} # root & staff can write
+	chmod -R 777 ${requests_dir} # Everyone can write
 }
 
 function touch_logfiles {
